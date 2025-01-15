@@ -22,32 +22,37 @@ public class PillCapsuleAnalyser {
     private WritableImage resultImage = null;
     private Boundary[] boundaries;
 
-
-
     public PillCapsuleAnalyser() {
         this.imageProcessor = new ImageProcessor();
+        this.pillList = new ArrayList<>();
+        this.imageWidth = 0;
+        this.imageHeight = 0;
+        this.minGroupSize = 1000;
     }
 
-
     public Image analyzeImage(Image originalImage, Color sampleColor, double threshold, String pillName) {
+        if (originalImage == null || sampleColor == null) {
+            return null;
+        }
+
         imageWidth = (int) originalImage.getWidth();
         imageHeight = (int) originalImage.getHeight();
+    
         this.unionFind = new UnionFind(imageWidth * imageHeight);
+        this.boundaries = new Boundary[imageWidth * imageHeight];
+        for (int i = 0; i < imageWidth * imageHeight; i++) {
+            boundaries[i] = new Boundary();
+        }
 
         // convert image to black and white
         Image bwImage = imageProcessor.convertToBlackAndWhite(originalImage, sampleColor, threshold);
         PixelReader bwReader = bwImage.getPixelReader();
-        // set up arrays to keep track of the size and boundaries of each group of white pixels.
-        this.boundaries = new Boundary[imageWidth * imageHeight];
-        for (int i = 0; i < imageWidth * imageHeight; i++) {
-            boundaries[i] = new Boundary(); // initialize boundaries
-        }
 
         // Apply union find algorithm to group adjacent white pixels
         for (int y = 0; y < imageHeight; y++) {
             for (int x = 0; x < imageWidth; x++) {
                 if (bwReader.getColor(x, y).equals(Color.WHITE)) {
-                    int index = x + y * imageWidth; //flat array
+                    int index = x + y * imageWidth;
                     whitePixels(bwReader, index, x, y);
                 }
             }
@@ -57,38 +62,41 @@ public class PillCapsuleAnalyser {
         calculateBoundaries(bwReader, boundaries);
 
         //writable image for drawing the results
-        if (resultImage == null) {
+        if (resultImage == null || resultImage.getWidth() != imageWidth || resultImage.getHeight() != imageHeight) {
             resultImage = new WritableImage(imageWidth, imageHeight);
         }
-        PixelWriter writer= resultImage.getPixelWriter();
+        PixelWriter writer = resultImage.getPixelWriter();
         PixelReader originalReader = originalImage.getPixelReader();
-            for (int y = 0; y < imageHeight; y++) {
-                for (int x = 0; x < imageWidth; x++) {
-                    writer.setColor(x, y, originalReader.getColor(x, y));
-                }
+        
+        // Copy original image
+        for (int y = 0; y < imageHeight; y++) {
+            for (int x = 0; x < imageWidth; x++) {
+                writer.setColor(x, y, originalReader.getColor(x, y));
             }
-
+        }
 
         // identify groups and draw rectangles
         for (int i = 0; i < boundaries.length; i++) {
             int root = unionFind.find(i);
-            if (i == root) { //check if i is the root
+            if (i == root) {
                 int size = unionFind.getSize(i);
                 if (size > minGroupSize && !isRootOfExistingPill(i)) {
                     Pill pill = new Pill(pillName, boundaries[i], size);
                     pillList.add(pill);
-                    sequenceNumbersAndSort();
                 }
             }
         }
-
+        
+        // Sort and update sequence numbers
+        sequenceNumbersAndSort();
+        
+        // Draw rectangles for all pills
         drawRectangles(writer);
 
         return resultImage;
     }
 
     public void reset(Canvas textCanvas, Image originalImage) {
-        // Clear the pill list
         pillList.clear();
 
         // Re-initialize boundaries
@@ -97,7 +105,6 @@ public class PillCapsuleAnalyser {
             boundaries[i] = new Boundary();
         }
 
-        // Reset Union-Find
         unionFind = new UnionFind(imageWidth * imageHeight);
 
         // Create a new writable image
@@ -113,16 +120,13 @@ public class PillCapsuleAnalyser {
 
         // Update the canvas to reflect the new writable image
         GraphicsContext gc = textCanvas.getGraphicsContext2D();
-        gc.clearRect(0, 0, textCanvas.getWidth(), textCanvas.getHeight()); // Clear any previous drawings on the canvas
+        gc.clearRect(0, 0, textCanvas.getWidth(), textCanvas.getHeight()); 
     }
-
-
-
-
 
     public void setMinGroupSize(int minGroupSize) {
         this.minGroupSize = minGroupSize;
     }
+
     private boolean isRootOfExistingPill(int index) {
         for (Pill pill : pillList) {
             if (pill.getBoundary().isInside(boundaries[index].minX, boundaries[index].minY)
@@ -132,7 +136,6 @@ public class PillCapsuleAnalyser {
         }
         return false;
     }
-
 
     private void whitePixels(PixelReader bwReader, int currentIndex, int x, int y){
         if (x > 0 && bwReader.getColor(x - 1, y).equals(Color.WHITE)) {
@@ -148,6 +151,7 @@ public class PillCapsuleAnalyser {
             unionFind.union(currentIndex, currentIndex + imageWidth);
         }
     }
+
     private void calculateBoundaries(PixelReader reader, Boundary[] boundaries) {
         for (int y = 0; y < imageHeight; y++) {
             for (int x = 0; x < imageWidth; x++) {
@@ -177,36 +181,39 @@ public class PillCapsuleAnalyser {
         }
     }
 
-     public void drawSequenceNumbers(Canvas textCanvas) {
-         GraphicsContext gc = textCanvas.getGraphicsContext2D();
-         gc.clearRect(0, 0, textCanvas.getWidth(), textCanvas.getHeight());
-         gc.setFill(Color.BLUE);
+    public void drawSequenceNumbers(Canvas textCanvas) {
+        GraphicsContext gc = textCanvas.getGraphicsContext2D();
+        gc.clearRect(0, 0, textCanvas.getWidth(), textCanvas.getHeight());
+        gc.setFill(Color.BLUE);
 
-             for (Pill pill : pillList) {
-                 if (pill.getSize() > minGroupSize) {
-                     Boundary boundary = pill.getBoundary();
-                     //  bottom right of the boundary
-                     int textX = boundary.maxX - 10;
-                     int textY = boundary.maxY - 5;
-                     String sequenceNumberText = String.valueOf(pill.getSequenceNumber());
-                     gc.fillText(sequenceNumberText, textX, textY);
-                 }
-             }
-         }
+        // Calculate scaling factors
+        double scaleX = textCanvas.getWidth() / imageWidth;
+        double scaleY = textCanvas.getHeight() / imageHeight;
 
+        double scale = Math.min(scaleX, scaleY);
 
+        // Calculate offset to center the image
+        double offsetX = (textCanvas.getWidth() - (imageWidth * scale)) / 2;
+        double offsetY = (textCanvas.getHeight() - (imageHeight * scale)) / 2;
+
+        for (Pill pill : pillList) {
+            if (pill.getSize() > minGroupSize) {
+                Boundary boundary = pill.getBoundary();
+                double textX = boundary.maxX * scale + offsetX - 10;
+                double textY = boundary.maxY * scale + offsetY - 5;
+                String sequenceNumberText = String.valueOf(pill.getSequenceNumber());
+                gc.fillText(sequenceNumberText, textX, textY);
+            }
+        }
+    }
 
     private void sequenceNumbersAndSort(){
-     pillList.sort(Comparator.comparingInt(pill -> pill.getBoundary().minY));
-       int sequenceNumber = 1;
-     for(Pill pill: pillList){
-          pill.setSequenceNumber(sequenceNumber++);
-      }
-      }
-
-
-
-
+        pillList.sort(Comparator.comparingInt(pill -> pill.getBoundary().minY));
+        int sequenceNumber = 1;
+        for(Pill pill: pillList){
+            pill.setSequenceNumber(sequenceNumber++);
+        }
+    }
 
     public int getPillCount(String name) {
         int count = 0;
@@ -221,6 +228,7 @@ public class PillCapsuleAnalyser {
     public List<Pill> getPills() {
         return pillList;
     }
+
     public static class Boundary {
         int minX = Integer.MAX_VALUE;
         int minY = Integer.MAX_VALUE;
@@ -237,33 +245,27 @@ public class PillCapsuleAnalyser {
         public boolean isInside(int x, int y) {
             return x >= minX && x <= maxX && y >= minY && y <= maxY;
         }
-
     }
-
-
 
     public List<Pill> findPillsAt(int x, int y) {
         List<Pill> foundPills = new ArrayList<>();
         for (Pill pill : pillList) {
-            if (pill.boundary.isInside(x, y)) {
+            if (pill.getBoundary().isInside(x, y)) {
                 foundPills.add(pill);
             }
         }
         return foundPills;
     }
 
-
-    private List<Pill> pillList = new ArrayList<>();
-
+    private List<Pill> pillList = new ArrayList();
 
     public class Pill{
         String name;
         Boundary boundary;
         int size;
-          int sequenceNumber;
+        int sequenceNumber;
 
         public Pill(String name, Boundary boundary, int size){
-
             if(name !=null){
                 this.name = name;
             }
@@ -291,11 +293,11 @@ public class PillCapsuleAnalyser {
         }
 
         public int getSequenceNumber() {
-             return sequenceNumber;
+            return sequenceNumber;
         }
 
-         public void setSequenceNumber(int sequenceNumber) {
+        public void setSequenceNumber(int sequenceNumber) {
             this.sequenceNumber = sequenceNumber;
-         }
+        }
     }
 }

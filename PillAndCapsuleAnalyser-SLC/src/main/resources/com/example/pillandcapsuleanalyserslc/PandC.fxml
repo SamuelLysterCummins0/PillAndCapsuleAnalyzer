@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.canvas.Canvas?>
 <?import javafx.scene.control.Button?>
@@ -23,11 +22,11 @@
                         <HBox spacing="10">
                             <Button fx:id="loadImageButton" onAction="#loadImage" style="-fx-background-color: #8FBC8F; -fx-text-fill: white;" text="Load Image" />
                             <Button fx:id="analyzeButton" onAction="#onAnalyzeClicked" style="-fx-background-color: #1E90FF; -fx-text-fill: white;" text="Analyze" />
-                     <Button fx:id="clearButton" mnemonicParsing="false" onAction="#onClearClicked" text="Clear" />
+                            <Button fx:id="clearButton" mnemonicParsing="false" onAction="#onClearClicked" text="Clear" />
                         </HBox>
                         <AnchorPane>
-                            <ImageView fx:id="photoView" fitHeight="500.0" fitWidth="754.0" onMouseClicked="#onImageClicked" pickOnBounds="true" preserveRatio="true" style="-fx-border-color: black; -fx-border-width: 2;" />
-                            <Canvas fx:id="textOverlayCanvas" height="500.0" mouseTransparent="true" width="754.0" AnchorPane.bottomAnchor="0" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="0" />
+                            <ImageView fx:id="photoView" fitHeight="500.0" fitWidth="754.0" onMouseClicked="#onImageClicked" pickOnBounds="true" preserveRatio="true" style="-fx-border-color: black; -fx-border-width: 2;" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+                            <Canvas fx:id="textOverlayCanvas" height="500.0" mouseTransparent="true" width="754.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
                         </AnchorPane>
                         <Label style="-fx-font-weight: bold;" text="Selected Pill/Capsule Name:" />
                         <TextField fx:id="pillNameField" prefHeight="33.0" prefWidth="353.0" promptText="Enter name/label here" />
